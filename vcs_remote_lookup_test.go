@@ -1,6 +1,7 @@
 package vcs
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -13,6 +14,8 @@ func TestVCSLookup(t *testing.T) {
 		"https://github.com/masterminds":                                   {work: false, t: Git},
 		"https://github.com/Masterminds/VCSTestRepo":                       {work: true, t: Git},
 		"https://bitbucket.org/mattfarina/testhgrepo":                      {work: true, t: Hg},
+		"https://bitbucket.org/mattfarina/repo-does-not-exist":             {work: false, t: Hg},
+		"https://bitbucket.org/mattfarina/private-repo-for-vcs-testing":    {work: false, t: Hg},
 		"https://launchpad.net/govcstestbzrrepo/trunk":                     {work: true, t: Bzr},
 		"https://launchpad.net/~mattfarina/+junk/mygovcstestbzrrepo":       {work: true, t: Bzr},
 		"https://launchpad.net/~mattfarina/+junk/mygovcstestbzrrepo/trunk": {work: true, t: Bzr},
@@ -56,8 +59,40 @@ func TestVCSLookup(t *testing.T) {
 			t.Errorf("Error detecting VCS from URL(%s): %s", u, err)
 		}
 
+		if err != nil &&
+			err != ErrCannotDetectVCS &&
+			!strings.HasSuffix(err.Error(), "Not Found") &&
+			!strings.HasSuffix(err.Error(), "Access Denied") &&
+			c.work == false {
+			t.Errorf("Unexpected error returned (%s): %s", u, err)
+		}
+
 		if c.work == true && ty != c.t {
 			t.Errorf("Incorrect VCS type returned(%s)", u)
 		}
+	}
+}
+
+func TestNotFound(t *testing.T) {
+	_, _, err := detectVcsFromRemote("https://mattfarina.com/notfound")
+	if err == nil || !strings.HasSuffix(err.Error(), " Not Found") {
+		t.Errorf("Failed to find not found repo")
+	}
+
+	_, err = NewRepo("https://mattfarina.com/notfound", "")
+	if err == nil || !strings.HasSuffix(err.Error(), " Not Found") {
+		t.Errorf("Failed to find not found repo")
+	}
+}
+
+func TestAccessDenied(t *testing.T) {
+	_, _, err := detectVcsFromRemote("https://bitbucket.org/mattfarina/private-repo-for-vcs-testing")
+	if err == nil || err.Error() != "Access Denied" {
+		t.Errorf("Failed to detect access denied")
+	}
+
+	_, err = NewRepo("https://bitbucket.org/mattfarina/private-repo-for-vcs-testing", "")
+	if err == nil || err.Error() != "Access Denied" {
+		t.Errorf("Failed to detect access denied")
 	}
 }

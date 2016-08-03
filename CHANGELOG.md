@@ -1,3 +1,46 @@
+# 1.8.0 (2016-06-29)
+
+## Added
+- #43: Detect when tool (e.g., git, svn, etc) not installed
+- #49: Detect access denied and not found situations
+
+## Changed
+- #48: Updated Go Report Gard url to new format
+- Refactored SVN handling to detect when not in a top level directory
+- Updating tagging to v[SemVer] structure for compatibility with other tools.
+
+## Fixed
+- #45: Fixed hg's update method so that it pulls from remote before updates
+
+# 1.7.0 (2016-05-05)
+
+- Adds a glide.yaml file with some limited information.
+- Implements #37: Ability to export source as a directory.
+- Implements #36: Get current version-ish with Current method. This returns
+  a branch (if on tip) or equivalent tip, a tag if on a tag, or a revision if
+  on an individual revision. Note, the tip of branch is VCS specific so usage
+  may require detecting VCS type.
+
+# 1.6.1 (2016-04-27)
+
+- Fixed #30: tags from commit should not have ^{} appended (seen in git)
+- Fixed #29: isDetachedHead fails with non-english locales (git)
+- Fixed #33: Access denied and not found http errors causing xml parsing errors
+
+# 1.6.0 (2016-04-18)
+
+- Issue #26: Added Init method to initialize a repo at the local location
+  (thanks tony).
+- Issue #19: Added method to retrieve tags for a commit.
+- Issue #24: Reworked errors returned from common methods. Now differing
+  VCS implementations return the same errors. The original VCS specific error
+  is available on the error. See the docs for more details.
+- Issue #25: Export the function RunFromDir which runs VCS commands from the
+  root of the local directory. This is useful for those that want to build and
+  extend on top of the vcs package (thanks tony).
+- Issue #22: Added Ping command to test if remote location is present and
+  accessible.
+
 # 1.5.1 (2016-03-23)
 
 - Fixing bug parsing some Git commit dates.

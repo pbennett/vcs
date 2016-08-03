@@ -2,6 +2,7 @@ package vcs
 
 import (
 	"io/ioutil"
+	"path/filepath"
 	"time"
 	//"log"
 	"os"
@@ -15,7 +16,6 @@ var _ Repo = &GitRepo{}
 // with a known git service.
 
 func TestGit(t *testing.T) {
-
 	tempDir, err := ioutil.TempDir("", "go-vcs-git-tests")
 	if err != nil {
 		t.Error(err)
@@ -83,6 +83,14 @@ func TestGit(t *testing.T) {
 		t.Error(err)
 	}
 
+	v, err := repo.Current()
+	if err != nil {
+		t.Errorf("Error trying Git Current: %s", err)
+	}
+	if v != "master" {
+		t.Errorf("Current failed to detect Git on tip of master. Got version: %s", v)
+	}
+
 	// Set the version using the short hash.
 	err = repo.UpdateVersion("806b07b")
 	if err != nil {
@@ -99,12 +107,20 @@ func TestGit(t *testing.T) {
 	}
 
 	// Use Version to verify we are on the right version.
-	v, err := repo.Version()
+	v, err = repo.Version()
 	if v != "806b07b08faa21cfbdae93027904f80174679402" {
 		t.Error("Error checking checked out Git version")
 	}
 	if err != nil {
 		t.Error(err)
+	}
+
+	v, err = repo.Current()
+	if err != nil {
+		t.Errorf("Error trying Git Current for ref: %s", err)
+	}
+	if v != "806b07b08faa21cfbdae93027904f80174679402" {
+		t.Errorf("Current failed to detect Git on ref of branch. Got version: %s", v)
 	}
 
 	// Use Date to verify we are on the right commit.
@@ -139,6 +155,22 @@ func TestGit(t *testing.T) {
 	}
 	if tags[0] != "1.0.0" {
 		t.Error("Git tags is not reporting the correct version")
+	}
+
+	tags, err = repo.TagsFromCommit("74dd547545b7df4aa285bcec1b54e2b76f726395")
+	if err != nil {
+		t.Error(err)
+	}
+	if len(tags) != 0 {
+		t.Error("Git is incorrectly returning tags for a commit")
+	}
+
+	tags, err = repo.TagsFromCommit("30605f6ac35fcb075ad0bfa9296f90a7d891523e")
+	if err != nil {
+		t.Error(err)
+	}
+	if len(tags) != 1 || tags[0] != "1.0.0" {
+		t.Error("Git is incorrectly returning tags for a commit")
 	}
 
 	branches, err := repo.Branches()
@@ -187,6 +219,38 @@ func TestGit(t *testing.T) {
 	if err != ErrRevisionUnavailable {
 		t.Error("Git didn't return expected ErrRevisionUnavailable")
 	}
+
+	tempDir2, err := ioutil.TempDir("", "go-vcs-git-tests-export")
+	if err != nil {
+		t.Fatalf("Error creating temp directory: %s", err)
+	}
+	defer func() {
+		err = os.RemoveAll(tempDir2)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+
+	exportDir := filepath.Join(tempDir2, "src")
+
+	err = repo.ExportDir(exportDir)
+	if err != nil {
+		t.Errorf("Unable to export Git repo. Err was %s", err)
+	}
+
+	_, err = os.Stat(filepath.Join(exportDir, "README.md"))
+	if err != nil {
+		t.Errorf("Error checking exported file in Git: %s", err)
+	}
+
+	_, err = os.Stat(filepath.Join(exportDir, string(repo.Vcs())))
+	if err != nil {
+		if found := os.IsNotExist(err); found == false {
+			t.Errorf("Error checking exported metadata in Git: %s", err)
+		}
+	} else {
+		t.Error("Error checking Git metadata. It exists.")
+	}
 }
 
 func TestGitCheckLocal(t *testing.T) {
@@ -213,5 +277,67 @@ func TestGitCheckLocal(t *testing.T) {
 	_, nrerr := NewRepo("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
 	if nrerr != nil {
 		t.Error(nrerr)
+	}
+}
+
+func TestGitPing(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-vcs-git-tests")
+	if err != nil {
+		t.Error(err)
+	}
+	defer func() {
+		err = os.RemoveAll(tempDir)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+
+	repo, err := NewGitRepo("https://github.com/Masterminds/VCSTestRepo", tempDir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ping := repo.Ping()
+	if !ping {
+		t.Error("Git unable to ping working repo")
+	}
+
+	repo, err = NewGitRepo("https://github.com/Masterminds/ihopethisneverexistsbecauseitshouldnt", tempDir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ping = repo.Ping()
+	if ping {
+		t.Error("Git got a ping response from when it should not have")
+	}
+}
+
+func TestGitInit(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-vcs-git-tests")
+	repoDir := tempDir + "/repo"
+	if err != nil {
+		t.Error(err)
+	}
+	defer func() {
+		err = os.RemoveAll(tempDir)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+
+	repo, err := NewGitRepo(repoDir, repoDir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = repo.Init()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = repo.RunFromDir("git", "status")
+	if err != nil {
+		t.Error(err)
 	}
 }
